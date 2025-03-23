@@ -103,7 +103,7 @@
 ## 灵感来源
 本项目的灵感来源于 Telegram-interactive-bot，
 
-- [Telegram-interactive-bot]([https://www.nodeseek.com/post-237769-1](https://github.com/MiHaKun/Telegram-interactive-bot))
+- [Telegram-interactive-bot](https://github.com/MiHaKun/Telegram-interactive-bot)
 
 ## 参考文献
 
