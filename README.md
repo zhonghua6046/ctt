@@ -101,7 +101,7 @@
 4. 发送消息，确认消息转发到后台群组的子论坛。
 
 ## 灵感来源
-本项目的灵感来源于 Telegram-interactive-bot，
+本项目的灵感来源于 Telegram-interactive-bot(部署在服务器)
 
 - [Telegram-interactive-bot](https://github.com/MiHaKun/Telegram-interactive-bot)
 
