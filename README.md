@@ -28,7 +28,7 @@
    - 管理员可通过后台群组直接回复用户消息，消息会转发到用户私聊。
 
 6. **轻量级部署**  
-   - 单文件部署（仅需一个`worker.js`），代码简洁，易于维护。
+   - 单文件部署（仅需一个`_worker.js`），代码简洁，易于维护。
    - 支持Cloudflare Workers和Cloudflare Pages部署，部署过程简单。
 
 ## 部署教程
@@ -47,25 +47,22 @@
 
 #### 步骤 1：创建Workers项目
 1. 登录[Cloudflare仪表板](https://dash.cloudflare.com/)。
-2. 导航到 **Workers > Overview**，点击 **Create a Service**。
-3. 输入一个名称（例如`cfteletrans`），选择 **HTTP handler**，点击 **Create**。
+2. 导航到 **Workers和Pages > Workers和Pages**，点击 **创建**。
+3. 点击 **Hello world**，输入一个名称（例如`cfteletrans`），再点击 **部署**
+4. 点击 **编辑代码**，把原来的代码用本项目中的_worker.js代码替换后部署
 
-#### 步骤 2：上传代码
-1. 在Workers编辑器中，将下方`_worker.js`的代码复制粘贴到编辑器中。
-2. 点击 **Save and Deploy**。
-
-#### 步骤 3：配置环境变量
+#### 步骤 2：配置环境变量
 1. 在Workers仪表板的 **Settings > Environment Variables** 中，添加以下变量：
 - `BOT_TOKEN_ENV`：您的Telegram Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
 - `GROUP_ID_ENV`：后台群组的Chat ID（例如`-100123456789`）。
 - `MAX_MESSAGES_PER_MINUTE_ENV`：消息频率限制（例如`40`）。
-2. 点击 **Save and Deploy**。
+2. 点击 **部署**。
 
-#### 步骤 4：设置Webhook
+#### 步骤 3：设置Webhook
 1. 访问您的Workers URL，例如`https://cfteletrans.your-username.workers.dev/registerWebhook`。
 2. 如果返回`Webhook set successfully`，则Webhook设置成功。
 
-#### 步骤 5：测试
+#### 步骤 4：测试
 1. 在Telegram中找到您的机器人，发送`/start`。
 2. 确认收到“你好，欢迎使用私聊机器人！”并触发验证码。
 3. 完成验证，确认收到合并消息，例如：
@@ -94,7 +91,7 @@
 2. 点击 **Save and Deploy**。
 
 #### 步骤 3：设置Webhook
-1. 访问您的Workers URL，例如`https://cfteletrans.your-username.workers.dev/registerWebhook`。
+1. 访问您的Workers URL，例如`https://cfteletrans.your-username.pages.dev/registerWebhook`。
 2. 如果返回`Webhook set successfully`，则Webhook设置成功。
 
 #### 步骤 4：测试
@@ -102,3 +99,17 @@
 2. 确认收到“你好，欢迎使用私聊机器人！”并触发验证码。
 3. 完成验证，确认收到合并消息，例如：
 4. 发送消息，确认消息转发到后台群组的子论坛。
+
+## 参考文献
+
+在开发过程中，以下资源提供了宝贵的参考和指导：
+
+- [NodeSeek 帖子](https://www.nodeseek.com/post-237769-1)
+
+## 致谢
+
+特别感谢 [xAI](https://x.ai/) 提供的支持和灵感，帮助我完成了本项目的开发和优化。
+
+## 贡献
+
+欢迎提交 Issue 或 Pull Request！如果您有任何改进建议或新功能需求，请随时联系我。
