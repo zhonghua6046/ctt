@@ -1,6 +1,6 @@
-# CFTeleTrans (CTT) - Telegram消息转发机器人（基于Cloudflare Workers）
+# CFTeleTrans (CTT) - Telegram消息转发分组对话机器人（基于Cloudflare）
 
-这是一个基于Cloudflare Workers实现的Telegram消息转发机器人，代号 **CFTeleTrans (CTT)**，专注于将用户消息安全、高效地转发到后台群组，同时充分利用Cloudflare的免费额度（榨干CF大善人！）。该机器人支持用户验证、消息转发、频率限制、管理员管理等功能，适用于客服、社区管理等场景。
+这是一个基于Cloudflare Workers实现的Telegram消息转发分组对话机器人，代号 **CFTeleTrans (CTT)**，专注于将用户消息安全、高效地转发到后台群组，同时充分利用Cloudflare的免费额度（榨干CF大善人！）。该机器人支持用户验证、消息转发、频率限制、管理员管理等功能，适用于客服、社区管理等场景。
 
 ## 特点与亮点
 
@@ -16,12 +16,12 @@
 
 3. **消息频率限制（防刷保护）**  
    - 默认每分钟40条消息上限（可通过环境变量调整），超过限制的用户需重新验证。
-   - 有效防止恶意刷消息，保护后台群组和服务器资源。
+   - 有效防止恶意刷消息，保护后台群组和cf免费额度。
 
-4. **子论坛消息管理**  
+4. **分组对话消息管理**  
    - 用户消息自动转发到后台群组的子论坛，子论坛以用户昵称命名，便于客服管理。
    - 置顶消息显示用户信息（昵称、用户名、UserID、发起时间）及通知内容
-   - 普通消息仅显示用户昵称和消息内容，简洁明了。
+   - 每个用户独立一个分组，随时随地想聊就聊！
 
 5. **管理员功能**  
    - 支持管理员命令：`/block`（拉黑用户）、`/unblock`（解除拉黑）、`/checkblock`（检查用户是否在黑名单）。
@@ -38,8 +38,67 @@
    - 在Telegram中找到`@BotFather`，发送`/newbot`创建新机器人。
    - 按照提示设置机器人名称和用户名，获取Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
 2. **创建后台群组**：
-   - 创建一个Telegram群组，添加机器人为管理员。
-   - 获取群组的Chat ID（例如`-100123456789`），可以通过`@getidsbot`获取。
-3. **准备外部文件**：
-   - 确保以下文件可访问：
-     - `https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db`：验证成功提示，例如：
+   - 创建一个Telegram群组（按需设置是否公开），
+   - 群组的“话题功能”打开。
+   - 添加机器人为管理员，建议权限全给（消息管理，话题管理）
+   - 获取群组的Chat ID（例如`-100123456789`），可以通过`@getidsbot`获取（拉它进群）。
+
+### 部署到Cloudflare Workers
+
+#### 步骤 1：创建Workers项目
+1. 登录[Cloudflare仪表板](https://dash.cloudflare.com/)。
+2. 导航到 **Workers > Overview**，点击 **Create a Service**。
+3. 输入一个名称（例如`cfteletrans`），选择 **HTTP handler**，点击 **Create**。
+
+#### 步骤 2：上传代码
+1. 在Workers编辑器中，将下方`_worker.js`的代码复制粘贴到编辑器中。
+2. 点击 **Save and Deploy**。
+
+#### 步骤 3：配置环境变量
+1. 在Workers仪表板的 **Settings > Environment Variables** 中，添加以下变量：
+- `BOT_TOKEN_ENV`：您的Telegram Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
+- `GROUP_ID_ENV`：后台群组的Chat ID（例如`-100123456789`）。
+- `MAX_MESSAGES_PER_MINUTE_ENV`：消息频率限制（例如`40`）。
+2. 点击 **Save and Deploy**。
+
+#### 步骤 4：设置Webhook
+1. 访问您的Workers URL，例如`https://cfteletrans.your-username.workers.dev/registerWebhook`。
+2. 如果返回`Webhook set successfully`，则Webhook设置成功。
+
+#### 步骤 5：测试
+1. 在Telegram中找到您的机器人，发送`/start`。
+2. 确认收到“你好，欢迎使用私聊机器人！”并触发验证码。
+3. 完成验证，确认收到合并消息，例如：
+4. 发送消息，确认消息转发到后台群组的子论坛。
+
+### 部署到Cloudflare Pages（可选）
+
+如果您希望通过Cloudflare Pages部署（例如托管静态文件或文档），可以按照以下步骤操作：
+
+#### 步骤 1：创建Pages项目
+0. fork本项目
+1. 登录[Cloudflare仪表板](https://dash.cloudflare.com/)。
+2. 导航到 **Pages > Create a project**，选择 **Connect to Git**。
+3. 连接您的GitHub仓库（需先将fork项目代码）。
+4. 设置构建配置：(全部留空默认)
+- **Framework preset**：选择`None`。
+- **Build command**：留空。
+- **Build output directory**：设置为`/`。
+5. 点击 **Save and Deploy**。
+
+#### 步骤 2：配置环境变量
+1. 在Workers仪表板的 **Settings > Environment Variables** 中，添加以下变量：
+- `BOT_TOKEN_ENV`：您的Telegram Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
+- `GROUP_ID_ENV`：后台群组的Chat ID（例如`-100123456789`）。
+- `MAX_MESSAGES_PER_MINUTE_ENV`：消息频率限制（例如`40`）。
+2. 点击 **Save and Deploy**。
+
+#### 步骤 3：设置Webhook
+1. 访问您的Workers URL，例如`https://cfteletrans.your-username.workers.dev/registerWebhook`。
+2. 如果返回`Webhook set successfully`，则Webhook设置成功。
+
+#### 步骤 4：测试
+1. 在Telegram中找到您的机器人，发送`/start`。
+2. 确认收到“你好，欢迎使用私聊机器人！”并触发验证码。
+3. 完成验证，确认收到合并消息，例如：
+4. 发送消息，确认消息转发到后台群组的子论坛。
