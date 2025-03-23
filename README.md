@@ -68,37 +68,6 @@
 3. 完成验证，确认收到合并消息，例如：
 4. 发送消息，确认消息转发到后台群组的子论坛。
 
-### 部署到Cloudflare Pages（可选）
-
-如果您希望通过Cloudflare Pages部署（例如托管静态文件或文档），可以按照以下步骤操作：
-
-#### 步骤 1：创建Pages项目
-0. fork本项目
-1. 登录[Cloudflare仪表板](https://dash.cloudflare.com/)。
-2. 导航到 **Pages > Create a project**，选择 **Connect to Git**。
-3. 连接您的GitHub仓库（需先将fork项目代码）。
-4. 设置构建配置：(全部留空默认)
-- **Framework preset**：选择`None`。
-- **Build command**：留空。
-- **Build output directory**：设置为`/`。
-5. 点击 **Save and Deploy**。
-
-#### 步骤 2：配置环境变量
-1. 在Workers仪表板的 **Settings > Environment Variables** 中，添加以下变量：
-- `BOT_TOKEN_ENV`：您的Telegram Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
-- `GROUP_ID_ENV`：后台群组的Chat ID（例如`-100123456789`）。
-- `MAX_MESSAGES_PER_MINUTE_ENV`：消息频率限制（例如`40`）。
-2. 点击 **Save and Deploy**。
-
-#### 步骤 3：设置Webhook
-1. 访问您的Workers URL，例如`https://cfteletrans.your-username.pages.dev/registerWebhook`。
-2. 如果返回`Webhook set successfully`，则Webhook设置成功。
-
-#### 步骤 4：测试
-1. 在Telegram中找到您的机器人，发送`/start`。
-2. 确认收到“你好，欢迎使用私聊机器人！”并触发验证码。
-3. 完成验证，确认收到合并消息，例如：
-4. 发送消息，确认消息转发到后台群组的子论坛。
 
 ## 灵感来源
 本项目的灵感来源于 Telegram-interactive-bot(部署在服务器)
