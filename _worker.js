@@ -92,9 +92,9 @@ async function onMessage(message) {
     if (isVerifiedAgain === 'true') {
       // 如果已经验证过，直接发送欢迎消息
       const successMessage = await getVerificationSuccessMessage();
-      await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人！`);
+      await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
     } else {
-      await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人！");
+      await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人，现在发送信息吧！");
       await handleVerification(chatId, messageId); // 触发验证
     }
     return;
