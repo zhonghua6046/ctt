@@ -1,1 +1,4 @@
-本项目开源地址：https://github.com/iawooo/ctt  欢迎部署，留下你的star吧
+本机器人项目地址：  
+[GitHub 项目](https://github.com/iawooo/ctt)  
+
+欢迎 fork，留下你的 star 再走吧！
