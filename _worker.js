@@ -262,7 +262,7 @@ async function sendVerification(chatId) {
  */
 async function getVerificationSuccessMessage() {
   try {
-    const response = await fetch('https://raw.githubusercontent.com/LloydAsp/nfd/main/data/fraud.db');
+    const response = await fetch('https://raw.githubusercontent.com/iawooo/ctt/refs/heads/main/CFTeleTrans/start.md');
     if (!response.ok) {
       throw new Error(`Failed to fetch fraud.db: ${response.statusText}`);
     }
@@ -283,7 +283,7 @@ async function getVerificationSuccessMessage() {
  */
 async function getNotificationContent() {
   try {
-    const response = await fetch('https://raw.githubusercontent.com/LloydAsp/nfd/main/data/notification.txt');
+    const response = await fetch('https://raw.githubusercontent.com/iawooo/ctt/refs/heads/main/CFTeleTrans/notification.md');
     if (!response.ok) {
       throw new Error(`Failed to fetch notification.txt: ${response.statusText}`);
     }
