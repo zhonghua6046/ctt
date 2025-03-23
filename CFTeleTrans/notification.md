@@ -1,1 +1,3 @@
-
+   - 支持命令：`/block`（拉黑用户）、`/unblock`（解除拉黑）、`/checkblock`（检查用户是否在黑名单）。
+   - 可通过直接回复命令给用户执行命令
+   - 该项目地址：https://github.com/iawooo/ctt 欢迎fork，留下你的star再走吧！
