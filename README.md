@@ -100,6 +100,11 @@
 3. 完成验证，确认收到合并消息，例如：
 4. 发送消息，确认消息转发到后台群组的子论坛。
 
+## 灵感来源
+本项目的灵感来源于 Telegram-interactive-bot，
+
+- [Telegram-interactive-bot]([https://www.nodeseek.com/post-237769-1](https://github.com/MiHaKun/Telegram-interactive-bot))
+
 ## 参考文献
 
 在开发过程中，以下资源提供了宝贵的参考和指导：
