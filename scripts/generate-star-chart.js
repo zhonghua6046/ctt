@@ -1,5 +1,6 @@
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
 const fs = require('fs');
+const fetch = require('node-fetch'); // ✅ 使用 node-fetch
 
 async function fetchStargazers() {
   const token = process.env.GITHUB_TOKEN;
@@ -10,6 +11,12 @@ async function fetchStargazers() {
       'User-Agent': 'CFTeleTrans'
     }
   });
+
+  if (!response.ok) {
+    console.error(`❌ GitHub API 请求失败: ${response.status} ${response.statusText}`);
+    return [];
+  }
+
   return await response.json();
 }
 
@@ -34,6 +41,10 @@ async function generateChart() {
     starCounts[i] += starCounts[i - 1];
   }
 
+  if (!fs.existsSync('images')) {
+    fs.mkdirSync('images');
+  }
+
   const width = 800;
   const height = 400;
   const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
@@ -46,7 +57,8 @@ async function generateChart() {
         label: 'Star 数量',
         data: starCounts,
         borderColor: 'rgba(75, 192, 192, 1)',
-        fill: false
+        fill: true,
+        backgroundColor: 'rgba(75, 192, 192, 0.2)'
       }]
     },
     options: {
@@ -64,6 +76,7 @@ async function generateChart() {
 
   const image = await chartJSNodeCanvas.renderToBuffer(configuration);
   fs.writeFileSync('images/star-chart.png', image);
+  console.log('✅ Star chart 生成成功: images/star-chart.png');
 }
 
 generateChart().catch(console.error);
