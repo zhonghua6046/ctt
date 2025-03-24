@@ -46,6 +46,7 @@
    - 在Telegram中找到`@BotFather`，发送`/newbot`创建新机器人。
    - 按照提示设置机器人名称和用户名，获取Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
    - 发送`/setinline`切换内联模式。
+![CFTeleTrans 截图](picture/0903f76329b80fc231893abde40b9ab8.png)
 
 2. **创建后台群组**：
    - 创建一个Telegram群组（按需设置是否公开），
