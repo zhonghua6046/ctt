@@ -45,6 +45,8 @@
 1. **创建Telegram Bot**：
    - 在Telegram中找到`@BotFather`，发送`/newbot`创建新机器人。
    - 按照提示设置机器人名称和用户名，获取Bot Token（例如`123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11`）。
+   - 发送`/setinline`切换内联模式。
+
 2. **创建后台群组**：
    - 创建一个Telegram群组（按需设置是否公开），
    - 群组的“话题功能”打开。
