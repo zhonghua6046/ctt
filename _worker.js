@@ -3,6 +3,10 @@ let BOT_TOKEN;
 let GROUP_ID;
 let MAX_MESSAGES_PER_MINUTE;
 
+// 全局变量，用于控制清理频率
+let lastCleanupTime = 0;
+const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 小时
+
 // 调试环境变量加载
 export default {
   async fetch(request, env) {
@@ -32,6 +36,12 @@ export default {
       return new Response('Server configuration error: D1 database is not bound', { status: 500 });
     }
 
+    // 在每次部署时自动检查和修复数据库表
+    await checkAndRepairTables(env.D1);
+
+    // 清理过期的验证码缓存（基于时间间隔）
+    await cleanExpiredVerificationCodes(env.D1);
+
     // 主处理函数
     async function handleRequest(request) {
       // 检查环境变量是否加载
@@ -54,60 +64,140 @@ export default {
         return await registerWebhook(request);
       } else if (url.pathname === '/unRegisterWebhook') {
         return await unRegisterWebhook();
-      } else if (url.pathname === '/initTables') {
-        return await initTables();
+      } else if (url.pathname === '/checkTables') {
+        await checkAndRepairTables(env.D1);
+        return new Response('Database tables checked and repaired', { status: 200 });
       }
       return new Response('Not Found', { status: 404 });
     }
 
-    // 初始化数据库表（通过 /initTables 端点调用）
-    async function initTables() {
+    // 检查和修复数据库表结构
+    async function checkAndRepairTables(d1) {
       try {
-        console.log('Starting table initialization...');
+        console.log('Checking and repairing database tables...');
 
-        // 创建 user_states 表
-        console.log('Creating user_states table...');
-        await env.D1.exec(`
-          CREATE TABLE IF NOT EXISTS user_states (
-            chat_id TEXT PRIMARY KEY,
-            is_blocked BOOLEAN DEFAULT FALSE,
-            is_verified BOOLEAN DEFAULT FALSE,
-            verified_expiry INTEGER,
-            verification_code TEXT,
-            code_expiry INTEGER,
-            last_verification_message_id TEXT,
-            is_first_verification BOOLEAN DEFAULT FALSE,
-            is_rate_limited BOOLEAN DEFAULT FALSE
-          )
-        `);
-        console.log('user_states table created successfully');
+        // 定义期望的表结构
+        const expectedTables = {
+          user_states: {
+            columns: {
+              chat_id: 'TEXT PRIMARY KEY',
+              is_blocked: 'BOOLEAN DEFAULT FALSE',
+              is_verified: 'BOOLEAN DEFAULT FALSE',
+              verified_expiry: 'INTEGER',
+              verification_code: 'TEXT',
+              code_expiry: 'INTEGER',
+              last_verification_message_id: 'TEXT',
+              is_first_verification: 'BOOLEAN DEFAULT FALSE',
+              is_rate_limited: 'BOOLEAN DEFAULT FALSE'
+            }
+          },
+          message_rates: {
+            columns: {
+              chat_id: 'TEXT PRIMARY KEY',
+              message_count: 'INTEGER DEFAULT 0',
+              window_start: 'INTEGER'
+            }
+          },
+          chat_topic_mappings: {
+            columns: {
+              chat_id: 'TEXT PRIMARY KEY',
+              topic_id: 'TEXT NOT NULL'
+            }
+          }
+        };
 
-        // 创建 message_rates 表
-        console.log('Creating message_rates table...');
-        await env.D1.exec(`
-          CREATE TABLE IF NOT EXISTS message_rates (
-            chat_id TEXT PRIMARY KEY,
-            message_count INTEGER DEFAULT 0,
-            window_start INTEGER
-          )
-        `);
-        console.log('message_rates table created successfully');
+        // 检查每个表
+        for (const [tableName, structure] of Object.entries(expectedTables)) {
+          try {
+            // 检查表是否存在
+            const tableInfo = await d1.prepare(
+              `SELECT sql FROM sqlite_master WHERE type='table' AND name=?`
+            ).bind(tableName).first();
 
-        // 创建 chat_topic_mappings 表
-        console.log('Creating chat_topic_mappings table...');
-        await env.D1.exec(`
-          CREATE TABLE IF NOT EXISTS chat_topic_mappings (
-            chat_id TEXT PRIMARY KEY,
-            topic_id TEXT NOT NULL
-          )
-        `);
-        console.log('chat_topic_mappings table created successfully');
+            if (!tableInfo) {
+              console.log(`Table ${tableName} not found, creating...`);
+              await createTable(d1, tableName, structure);
+              continue;
+            }
 
-        console.log('Database tables initialized successfully');
-        return new Response('Database tables initialized successfully', { status: 200 });
+            // 检查表结构
+            const columnsResult = await d1.prepare(
+              `PRAGMA table_info(${tableName})`
+            ).all();
+            
+            const currentColumns = new Map(
+              columnsResult.results.map(col => [col.name, {
+                type: col.type,
+                notnull: col.notnull,
+                dflt_value: col.dflt_value
+              }])
+            );
+
+            // 检查缺失的列
+            for (const [colName, colDef] of Object.entries(structure.columns)) {
+              if (!currentColumns.has(colName)) {
+                console.log(`Adding missing column ${colName} to ${tableName}`);
+                const columnParts = colDef.split(' ');
+                const addColumnSQL = `ALTER TABLE ${tableName} ADD COLUMN ${colName} ${columnParts.slice(1).join(' ')}`;
+                await d1.exec(addColumnSQL);
+              }
+            }
+
+            console.log(`Table ${tableName} checked and verified`);
+          } catch (error) {
+            console.error(`Error checking ${tableName}:`, error);
+            console.log(`Attempting to recreate ${tableName}...`);
+            await d1.exec(`DROP TABLE IF EXISTS ${tableName}`);
+            await createTable(d1, tableName, structure);
+          }
+        }
+
+        console.log('Database tables check and repair completed');
       } catch (error) {
-        console.error('Error initializing database tables:', error);
-        return new Response(`Failed to initialize database tables: ${error.message}`, { status: 500 });
+        console.error('Error in checkAndRepairTables:', error);
+        throw error;
+      }
+    }
+
+    // 创建表的辅助函数
+    async function createTable(d1, tableName, structure) {
+      const columnsDef = Object.entries(structure.columns)
+        .map(([name, def]) => `${name} ${def}`)
+        .join(', ');
+      const createSQL = `CREATE TABLE ${tableName} (${columnsDef})`;
+      await d1.exec(createSQL);
+      console.log(`Table ${tableName} created successfully`);
+    }
+
+    // 清理过期的验证码缓存
+    async function cleanExpiredVerificationCodes(d1) {
+      const now = Date.now();
+      // 仅在超过清理间隔时执行清理
+      if (now - lastCleanupTime < CLEANUP_INTERVAL) {
+        return;
+      }
+
+      console.log('Running task to clean expired verification codes...');
+      try {
+        const nowSeconds = Math.floor(now / 1000);
+        const expiredCodes = await d1.prepare(
+          'SELECT chat_id FROM user_states WHERE code_expiry IS NOT NULL AND code_expiry < ?'
+        ).bind(nowSeconds).all();
+
+        if (expiredCodes.results.length > 0) {
+          console.log(`Found ${expiredCodes.results.length} expired verification codes. Cleaning up...`);
+          for (const { chat_id } of expiredCodes.results) {
+            await d1.prepare(
+              'UPDATE user_states SET verification_code = NULL, code_expiry = NULL WHERE chat_id = ?'
+            ).bind(chat_id).run();
+            console.log(`Cleaned expired verification code for chat_id: ${chat_id}`);
+          }
+        } else {
+          console.log('No expired verification codes found.');
+        }
+        lastCleanupTime = now; // 更新最后清理时间
+      } catch (error) {
+        console.error('Error cleaning expired verification codes:', error);
       }
     }
 
@@ -167,9 +257,44 @@ export default {
         isVerified = false;
       }
       console.log(`User ${chatId} verification status: ${isVerified}`);
+
+      // 处理 /start 命令，确保不转发
+      if (text === '/start') {
+        console.log(`Received /start command from ${chatId}, processing without forwarding...`);
+        await env.D1.prepare('INSERT OR REPLACE INTO user_states (chat_id, is_first_verification) VALUES (?, ?)')
+          .bind(chatId, true)
+          .run();
+
+        // 再次检查验证状态
+        const verificationStateAgain = await env.D1.prepare('SELECT is_verified, verified_expiry FROM user_states WHERE chat_id = ?')
+          .bind(chatId)
+          .first();
+        let isVerifiedAgain = verificationStateAgain ? verificationStateAgain.is_verified : false;
+        const verifiedExpiryAgain = verificationStateAgain ? verificationStateAgain.verified_expiry : null;
+
+        if (verifiedExpiryAgain && nowSeconds > verifiedExpiryAgain) {
+          await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = NULL WHERE chat_id = ?')
+            .bind(false, chatId)
+            .run();
+          isVerifiedAgain = false;
+        }
+
+        if (isVerifiedAgain && (!verifiedExpiryAgain || nowSeconds <= verifiedExpiryAgain)) {
+          // 如果已经验证过，直接发送 start.md 内容
+          const successMessage = await getVerificationSuccessMessage();
+          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
+        } else {
+          // 未验证，发送欢迎消息并触发验证
+          await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人，请完成验证以开始使用！");
+          await handleVerification(chatId, messageId);
+        }
+        return; // 确保 /start 不被转发
+      }
+
+      // 如果用户未通过验证，提示并触发验证
       if (!isVerified) {
         const messageContent = text || '非文本消息';
-        await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n无法发送，请完成验证`);
+        await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n请先完成验证！`);
         await handleVerification(chatId, messageId);
         return;
       }
@@ -186,32 +311,7 @@ export default {
         return;
       }
 
-      // 处理客户消息
-      if (text === '/start') {
-        await env.D1.prepare('INSERT OR REPLACE INTO user_states (chat_id, is_first_verification) VALUES (?, ?)')
-          .bind(chatId, true)
-          .run();
-        const verificationStateAgain = await env.D1.prepare('SELECT is_verified, verified_expiry FROM user_states WHERE chat_id = ?')
-          .bind(chatId)
-          .first();
-        const isVerifiedAgain = verificationStateAgain ? verificationStateAgain.is_verified : false;
-        const verifiedExpiryAgain = verificationStateAgain ? verificationStateAgain.verified_expiry : null;
-        if (verifiedExpiryAgain && nowSeconds > verifiedExpiryAgain) {
-          await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = NULL WHERE chat_id = ?')
-            .bind(false, chatId)
-            .run();
-        }
-        if (isVerifiedAgain && (!verifiedExpiryAgain || nowSeconds <= verifiedExpiryAgain)) {
-          // 如果已经验证过，直接发送欢迎消息
-          const successMessage = await getVerificationSuccessMessage();
-          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
-        } else {
-          await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人，现在发送信息吧！");
-          await handleVerification(chatId, messageId); // 触发验证
-        }
-        return;
-      }
-
+      // 处理普通消息，转发到群组
       try {
         const userInfo = await getUserInfo(chatId);
         const userName = userInfo.username || userInfo.first_name;
@@ -239,7 +339,6 @@ export default {
       const text = message.text;
       const senderId = message.from.id.toString();
 
-      // 检查发送者是否为管理员
       const isAdmin = await checkIfAdmin(senderId);
       if (!isAdmin) {
         await sendMessageToTopic(topicId, '只有管理员可以使用此命令。');
@@ -377,12 +476,12 @@ export default {
       try {
         const response = await fetch('https://raw.githubusercontent.com/iawooo/ctt/refs/heads/main/CFTeleTrans/start.md');
         if (!response.ok) {
-          throw new Error(`Failed to fetch fraud.db: ${response.statusText}`);
+          throw new Error(`Failed to fetch start.md: ${response.statusText}`);
         }
         const message = await response.text();
         const trimmedMessage = message.trim();
         if (!trimmedMessage) {
-          throw new Error('fraud.db content is empty');
+          throw new Error('start.md content is empty');
         }
         return trimmedMessage;
       } catch (error) {
@@ -395,12 +494,12 @@ export default {
       try {
         const response = await fetch('https://raw.githubusercontent.com/iawooo/ctt/refs/heads/main/CFTeleTrans/notification.md');
         if (!response.ok) {
-          throw new Error(`Failed to fetch notification.txt: ${response.statusText}`);
+          throw new Error(`Failed to fetch notification.md: ${response.statusText}`);
         }
         const content = await response.text();
         const trimmedContent = content.trim();
         if (!trimmedContent) {
-          throw new Error('notification.txt content is empty');
+          throw new Error('notification.md content is empty');
         }
         return trimmedContent;
       } catch (error) {
@@ -439,18 +538,16 @@ export default {
         const userState = await env.D1.prepare('SELECT is_first_verification, is_rate_limited FROM user_states WHERE chat_id = ?')
           .bind(chatId)
           .first();
-        const isFirstVerification = userState ? userState.is_first_verification : false;
         const isRateLimited = userState ? userState.is_rate_limited : false;
 
-        if (isFirstVerification) {
-          const successMessage = await getVerificationSuccessMessage();
-          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人！`);
-          await env.D1.prepare('UPDATE user_states SET is_first_verification = ? WHERE chat_id = ?')
-            .bind(false, chatId)
-            .run();
-        } else {
-          await sendMessageToUser(chatId, '验证成功！请重新发送您的消息');
-        }
+        // 无论是否首次验证，只要通过验证就发送 start.md 内容
+        const successMessage = await getVerificationSuccessMessage();
+        await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人！现在可以发送消息了。`);
+
+        // 更新首次验证状态
+        await env.D1.prepare('UPDATE user_states SET is_first_verification = ? WHERE chat_id = ?')
+          .bind(false, chatId)
+          .run();
 
         if (isRateLimited) {
           await env.D1.prepare('UPDATE user_states SET is_rate_limited = ? WHERE chat_id = ?')
@@ -546,7 +643,8 @@ export default {
 
       const notificationContent = await getNotificationContent();
 
-      const pinnedMessage = `昵称: ${nickname}\n用户名: ${userName}\nUserID: ${userId}\n发起时间: ${formattedTime}\n\n${notificationContent}`;
+      // 修改用户名格式为 "用户名: @userName"
+      const pinnedMessage = `昵称: ${nickname}\n用户名: @${userName}\nUserID: ${userId}\n发起时间: ${formattedTime}\n\n${notificationContent}`;
       const messageResponse = await sendMessageToTopic(topicId, pinnedMessage);
       const messageId = messageResponse.result.message_id;
       await pinMessage(topicId, messageId);
