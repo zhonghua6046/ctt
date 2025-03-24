@@ -4,7 +4,7 @@
 
 ## 项目截图
 
-以下是 CFTeleTrans 项目的截图：
+以下是 CFTeleTrans 项目的截图： 
 
 ![CFTeleTrans 截图](picture/60e43fcf63e7c49148c2df7caff7d176.png)
 
