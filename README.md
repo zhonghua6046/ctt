@@ -122,7 +122,7 @@
 
 ## 致谢
 
-特别感谢 [xAI](https://x.ai/)  [cloud flare](https://www.cloudflare.com/)) 提供的支持和灵感，帮助我完成了本项目的开发和优化。
+特别感谢 [xAI](https://x.ai/)  [cloud flare](https://www.cloudflare.com/) 提供的支持和灵感，帮助我完成了本项目的开发和优化。
 
 ## 贡献
 
