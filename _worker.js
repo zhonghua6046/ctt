@@ -3,9 +3,10 @@ let BOT_TOKEN;
 let GROUP_ID;
 let MAX_MESSAGES_PER_MINUTE;
 
-// 全局变量，用于控制清理频率
+// 全局变量，用于控制清理频率和 webhook 初始化
 let lastCleanupTime = 0;
 const CLEANUP_INTERVAL = 24 * 60 * 60 * 1000; // 24 小时
+let isWebhookInitialized = false; // 用于标记 webhook 是否已初始化
 
 // 调试环境变量加载
 export default {
@@ -39,6 +40,12 @@ export default {
     // 在每次部署时自动检查和修复数据库表
     await checkAndRepairTables(env.D1);
 
+    // 自动注册 webhook（仅在首次启动时执行）
+    if (!isWebhookInitialized && BOT_TOKEN) {
+      await autoRegisterWebhook(request);
+      isWebhookInitialized = true; // 标记为已初始化，避免重复注册
+    }
+
     // 清理过期的验证码缓存（基于时间间隔）
     await cleanExpiredVerificationCodes(env.D1);
 
@@ -61,7 +68,7 @@ export default {
           return new Response('Bad Request', { status: 400 });
         }
       } else if (url.pathname === '/registerWebhook') {
-        return await registerWebhook(request);
+        return await registerWebhook(request); // 保留手动注册接口以备不时之需
       } else if (url.pathname === '/unRegisterWebhook') {
         return await unRegisterWebhook();
       } else if (url.pathname === '/checkTables') {
@@ -69,6 +76,26 @@ export default {
         return new Response('Database tables checked and repaired', { status: 200 });
       }
       return new Response('Not Found', { status: 404 });
+    }
+
+    // 自动注册 webhook 的函数
+    async function autoRegisterWebhook(request) {
+      console.log('Attempting to auto-register webhook...');
+      const webhookUrl = `${new URL(request.url).origin}/webhook`;
+      try {
+        const response = await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/setWebhook`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: webhookUrl }),
+        }).then(r => r.json());
+        if (response.ok) {
+          console.log('Webhook auto-registered successfully');
+        } else {
+          console.error('Webhook auto-registration failed:', JSON.stringify(response, null, 2));
+        }
+      } catch (error) {
+        console.error('Error during webhook auto-registration:', error);
+      }
     }
 
     // 检查和修复数据库表结构
@@ -294,7 +321,7 @@ export default {
       // 如果用户未通过验证，提示并触发验证
       if (!isVerified) {
         const messageContent = text || '非文本消息';
-        await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n请先完成验证！`);
+        await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n请先完成验证后再发送此信息！`);
         await handleVerification(chatId, messageId);
         return;
       }
