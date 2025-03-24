@@ -6,7 +6,7 @@
 
 以下是 CFTeleTrans 项目的截图：
 
-![CFTeleTrans 截图](picture/")
+![CFTeleTrans 截图](picture/60e43fcf63e7c49148c2df7caff7d176.png)
 
 ## 特点与亮点
 
@@ -106,6 +106,8 @@
 3. 连接GitHub部署（或者下载本项目zip部署）
 
 #### 步骤 2：填写变量后重试部署
+![变量截图](picture/30d4b767f1c9a050999b8642f164c90c.png)
+
 
 ## 灵感来源
 本项目的灵感来源于 Telegram-interactive-bot(部署在服务器)
