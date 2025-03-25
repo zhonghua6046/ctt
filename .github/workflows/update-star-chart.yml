@@ -12,7 +12,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }} # 使用 CUSTOM_GITHUB_TOKEN 检出代码
+          token: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v3
@@ -27,7 +27,7 @@ jobs:
 
       - name: Generate star chart
         env:
-          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }} # 使用 CUSTOM_GITHUB_TOKEN 获取星标数据
+          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
         run: npm run generate-star-chart
 
       - name: Update README with new image version
@@ -41,10 +41,8 @@ jobs:
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add images/star-chart.png README.md
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update star chart and README with new image version"
-            git remote set-url origin https://x-access-token:${{ secrets.CUSTOM_GITHUB_TOKEN }}@github.com/iawooo/ctt.git
-            git push
-          fi
+          echo "Files staged for commit:"
+          git status
+          git commit -m "Update star chart and README with new image version" || echo "No changes to commit"
+          git remote set-url origin https://x-access-token:${{ secrets.CUSTOM_GITHUB_TOKEN }}@github.com/iawooo/ctt.git
+          git push
