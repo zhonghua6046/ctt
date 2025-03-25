@@ -1,9 +1,8 @@
 const { ChartJSNodeCanvas } = require('chartjs-node-canvas');
-const ChartDataLabels = require('chartjs-plugin-datalabels'); // 用于显示数据标签
+const ChartDataLabels = require('chartjs-plugin-datalabels');
 const fs = require('fs');
-const fetch = require('node-fetch'); // ✅ 使用 node-fetch
+const fetch = require('node-fetch');
 
-// 获取星标数据，支持分页
 async function fetchStargazers() {
   const token = process.env.GITHUB_TOKEN;
   if (!token) {
@@ -34,17 +33,15 @@ async function fetchStargazers() {
     const stargazers = await response.json();
     allStargazers = allStargazers.concat(stargazers);
 
-    // 如果返回的数据少于 perPage，说明已到最后一页
     if (stargazers.length < perPage) break;
-
     page++;
   }
 
   console.log(`✅ 成功获取 ${allStargazers.length} 条星标数据`);
+  console.log('最近的星标:', allStargazers.slice(-5).map(star => star.starred_at)); // 打印最近 5 个星标时间
   return allStargazers;
 }
 
-// 生成星标趋势图
 async function generateChart() {
   const stargazers = await fetchStargazers();
   if (stargazers.length === 0) {
@@ -52,17 +49,14 @@ async function generateChart() {
     return;
   }
 
-  // 动态计算时间范围
   const starDates = stargazers.map(star => new Date(star.starred_at));
   const earliestDate = new Date(Math.min(...starDates));
   const now = new Date();
-  
-  // 计算从最早星标到现在的月份数
+
   const monthsDiff = (now.getFullYear() - earliestDate.getFullYear()) * 12 + (now.getMonth() - earliestDate.getMonth()) + 1;
   const starCounts = Array(monthsDiff).fill(0);
   const labels = [];
 
-  // 生成月份标签和星标计数
   for (let i = monthsDiff - 1; i >= 0; i--) {
     const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
     const monthStr = `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}`;
@@ -74,22 +68,23 @@ async function generateChart() {
     starCounts[monthsDiff - 1 - i] = count;
   }
 
-  // 累加星标数量，生成趋势数据
-  for (let i = 1; i < starCounts.length; i++) {
+  for (let i =1; i < starCounts.length; i++) {
     starCounts[i] += starCounts[i - 1];
   }
 
-  // 创建 images 目录
+  console.log('月份标签:', labels);
+  console.log('星标数量:', starCounts);
+  console.log(`总星标数: ${starCounts[starCounts.length - 1]}`);
+
   if (!fs.existsSync('images')) {
     console.log('📁 创建 images 目录...');
     fs.mkdirSync('images');
   }
 
-  // 配置图表
   const width = 800;
   const height = 400;
   const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
-  chartJSNodeCanvas.registerPlugin(ChartDataLabels); // 注册数据标签插件
+  chartJSNodeCanvas.registerPlugin(ChartDataLabels);
 
   const configuration = {
     type: 'line',
@@ -101,7 +96,7 @@ async function generateChart() {
         borderColor: 'rgba(75, 192, 192, 1)',
         fill: true,
         backgroundColor: 'rgba(75, 192, 192, 0.2)',
-        tension: 0.3 // 使折线更平滑
+        tension: 0.3
       }]
     },
     options: {
@@ -135,19 +130,17 @@ async function generateChart() {
           align: 'top',
           color: '#666',
           font: { size: 12 },
-          formatter: (value) => value // 显示具体数值
+          formatter: (value) => value
         }
       }
     }
   };
 
-  // 生成并保存图表
   const image = await chartJSNodeCanvas.renderToBuffer(configuration);
   fs.writeFileSync('images/star-chart.png', image);
   console.log('✅ Star chart 生成成功: images/star-chart.png');
 }
 
-// 运行脚本
 generateChart().catch(err => {
   console.error('❌ 生成图表时发生错误:', err);
 });
