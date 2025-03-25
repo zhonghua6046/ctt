@@ -30,11 +30,21 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }} # 使用 CUSTOM_GITHUB_TOKEN 获取星标数据
         run: npm run generate-star-chart
 
+      - name: Update README with new image version
+        run: |
+          TIMESTAMP=$(date +%s)
+          sed -i "s|images/star-chart.png?v=[0-9]*|images/star-chart.png?v=$TIMESTAMP|g" README.md
+          sed -i "s|images/star-chart.png|images/star-chart.png?v=$TIMESTAMP|g" README.md
+
       - name: Commit and push changes
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
-          git add images/star-chart.png
-          git commit -m "Update star chart" || echo "No changes to commit"
-          git remote set-url origin https://x-access-token:${{ secrets.CUSTOM_GITHUB_TOKEN }}@github.com/iawooo/ctt.git
-          git push
+          git add images/star-chart.png README.md
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update star chart and README with new image version"
+            git remote set-url origin https://x-access-token:${{ secrets.CUSTOM_GITHUB_TOKEN }}@github.com/iawooo/ctt.git
+            git push
+          fi
