@@ -25,16 +25,16 @@ jobs:
 
       - name: Generate star chart
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }} # 使用 CUSTOM_GITHUB_TOKEN
         run: npm run generate-star-chart
 
       - name: Commit and push changes
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT }} # 使用 PAT
+          GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }} # 使用 CUSTOM_GITHUB_TOKEN
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
           git add images/star-chart.png
           git commit -m "Update star chart" || echo "No changes to commit"
-          git remote set-url origin https://x-access-token:${{ secrets.PAT }}@github.com/iawooo/ctt.git
+          git remote set-url origin https://x-access-token:${{ secrets.CUSTOM_GITHUB_TOKEN }}@github.com/iawooo/ctt.git
           git push
