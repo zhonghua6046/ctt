@@ -64,7 +64,6 @@
 1. 登录[Cloudflare仪表板](https://dash.cloudflare.com/)。
 2. 导航到 **Workers和Pages > Workers和Pages**，点击 **创建**。
 3. 点击 **Hello world**，输入一个名称（例如`cfteletrans`），再点击 **部署**
-4. 点击 **编辑代码**，把原来的代码用本项目中的_worker.js代码替换后部署
 
 #### 步骤 3：配置环境变量
 1. 在创建的Workers项目 **设置 > 变量和机密** 中，添加以下变量：
@@ -77,7 +76,7 @@
 - 添加-选择D1数据库
 - 变量名称 `D1`
 - D1 数据库 选择刚建的数据库（例如`cfteletrans-db`），
-1. 点击 **部署**。
+- 点击 **编辑代码**，把原来的代码用本项目中的_worker.js代码替换后部署
 
 #### 步骤 5：测试
 1. 在Telegram中找到您的机器人，发送`/start`。
