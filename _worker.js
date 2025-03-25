@@ -269,22 +269,6 @@ export default {
         return;
       }
 
-      // 检查用户是否已通过验证
-      const verificationState = await env.D1.prepare('SELECT is_verified, verified_expiry FROM user_states WHERE chat_id = ?')
-        .bind(chatId)
-        .first();
-      let isVerified = verificationState ? verificationState.is_verified : false;
-      const verifiedExpiry = verificationState ? verificationState.verified_expiry : null;
-      const nowSeconds = Math.floor(Date.now() / 1000);
-      if (verifiedExpiry && nowSeconds > verifiedExpiry) {
-        // 验证状态已过期，重置为未验证
-        await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = NULL WHERE chat_id = ?')
-          .bind(false, chatId)
-          .run();
-        isVerified = false;
-      }
-      console.log(`User ${chatId} verification status: ${isVerified}`);
-
       // 处理 /start 命令，确保不转发
       if (text === '/start') {
         console.log(`Received /start command from ${chatId}, processing without forwarding...`);
@@ -292,45 +276,28 @@ export default {
           .bind(chatId, true)
           .run();
 
-        // 再次检查验证状态
-        const verificationStateAgain = await env.D1.prepare('SELECT is_verified, verified_expiry FROM user_states WHERE chat_id = ?')
+        const firstVerificationState = await env.D1.prepare('SELECT is_first_verification FROM user_states WHERE chat_id = ?')
           .bind(chatId)
           .first();
-        let isVerifiedAgain = verificationStateAgain ? verificationStateAgain.is_verified : false;
-        const verifiedExpiryAgain = verificationStateAgain ? verificationStateAgain.verified_expiry : null;
+        const isFirstVerification = firstVerificationState ? firstVerificationState.is_first_verification : true;
 
-        if (verifiedExpiryAgain && nowSeconds > verifiedExpiryAgain) {
-          await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = NULL WHERE chat_id = ?')
-            .bind(false, chatId)
-            .run();
-          isVerifiedAgain = false;
-        }
-
-        if (isVerifiedAgain && (!verifiedExpiryAgain || nowSeconds <= verifiedExpiryAgain)) {
-          // 如果已经验证过，直接发送 start.md 内容
-          const successMessage = await getVerificationSuccessMessage();
-          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
-        } else {
-          // 未验证，发送欢迎消息并触发验证
+        if (isFirstVerification) {
+          // 首次使用，发送欢迎消息并触发验证
           await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人，请完成验证以开始使用！");
           await handleVerification(chatId, messageId);
+        } else {
+          // 非首次使用，直接发送欢迎消息
+          const successMessage = await getVerificationSuccessMessage();
+          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
         }
         return; // 确保 /start 不被转发
       }
 
-      // 如果用户未通过验证，提示并触发验证
-      if (!isVerified) {
-        const messageContent = text || '非文本消息';
-        await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n请先完成验证后再发送此信息！`);
-        await handleVerification(chatId, messageId);
-        return;
-      }
-
       // 检查消息频率（防刷）
       if (await checkMessageRate(chatId)) {
-        console.log(`User ${chatId} exceeded message rate limit, resetting verification.`);
-        await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = NULL, is_rate_limited = ? WHERE chat_id = ?')
-          .bind(false, true, chatId)
+        console.log(`User ${chatId} exceeded message rate limit, requiring verification.`);
+        await env.D1.prepare('UPDATE user_states SET is_rate_limited = ? WHERE chat_id = ?')
+          .bind(true, chatId)
           .run();
         const messageContent = text || '非文本消息';
         await sendMessageToUser(chatId, `无法转发的信息：${messageContent}\n信息过于频繁，请完成验证后发送信息`);
@@ -557,7 +524,7 @@ export default {
       }
 
       if (result === 'correct') {
-        const verifiedExpiry = nowSeconds + 3600; // 1 小时有效期
+        const verifiedExpiry = nowSeconds + 3600; // 1 小时有效期，仅用于记录
         await env.D1.prepare('UPDATE user_states SET is_verified = ?, verified_expiry = ?, verification_code = NULL, code_expiry = NULL, last_verification_message_id = NULL WHERE chat_id = ?')
           .bind(true, verifiedExpiry, chatId)
           .run();
@@ -565,17 +532,20 @@ export default {
         const userState = await env.D1.prepare('SELECT is_first_verification, is_rate_limited FROM user_states WHERE chat_id = ?')
           .bind(chatId)
           .first();
+        const isFirstVerification = userState ? userState.is_first_verification : false;
         const isRateLimited = userState ? userState.is_rate_limited : false;
 
-        // 无论是否首次验证，只要通过验证就发送 start.md 内容
         const successMessage = await getVerificationSuccessMessage();
         await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人！现在可以发送消息了。`);
 
-        // 更新首次验证状态
-        await env.D1.prepare('UPDATE user_states SET is_first_verification = ? WHERE chat_id = ?')
-          .bind(false, chatId)
-          .run();
+        // 如果是首次验证，更新状态
+        if (isFirstVerification) {
+          await env.D1.prepare('UPDATE user_states SET is_first_verification = ? WHERE chat_id = ?')
+            .bind(false, chatId)
+            .run();
+        }
 
+        // 如果是因频率限制触发的验证，解除限制
         if (isRateLimited) {
           await env.D1.prepare('UPDATE user_states SET is_rate_limited = ? WHERE chat_id = ?')
             .bind(false, chatId)
