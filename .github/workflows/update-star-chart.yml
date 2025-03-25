@@ -5,6 +5,10 @@ on:
     - cron: '0 0 * * *' # 每天运行一次
   workflow_dispatch: # 允许手动触发
 
+permissions:
+  contents: write # 授予写入权限，允许 git push
+  repository-projects: read # 允许读取仓库数据（获取星标）
+
 jobs:
   update-star-chart:
     runs-on: ubuntu-latest
@@ -18,7 +22,7 @@ jobs:
           node-version: '18'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps # 添加 --legacy-peer-deps
+        run: npm install --legacy-peer-deps
 
       - name: Install system dependencies for canvas
         run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
