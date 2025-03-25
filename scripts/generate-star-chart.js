@@ -38,7 +38,7 @@ async function fetchStargazers() {
   }
 
   console.log(`✅ 成功获取 ${allStargazers.length} 条星标数据`);
-  console.log('最近的星标:', allStargazers.slice(-5).map(star => star.starred_at)); // 打印最近 5 个星标时间
+  console.log('最近的星标:', allStargazers.slice(-5).map(star => star.starred_at));
   return allStargazers;
 }
 
@@ -68,7 +68,7 @@ async function generateChart() {
     starCounts[monthsDiff - 1 - i] = count;
   }
 
-  for (let i =1; i < starCounts.length; i++) {
+  for (let i = 1; i < starCounts.length; i++) {
     starCounts[i] += starCounts[i - 1];
   }
 
@@ -84,7 +84,6 @@ async function generateChart() {
   const width = 800;
   const height = 400;
   const chartJSNodeCanvas = new ChartJSNodeCanvas({ width, height });
-  chartJSNodeCanvas.registerPlugin(ChartDataLabels);
 
   const configuration = {
     type: 'line',
@@ -133,7 +132,8 @@ async function generateChart() {
           formatter: (value) => value
         }
       }
-    }
+    },
+    plugins: [ChartDataLabels] // 直接在配置中注册插件
   };
 
   const image = await chartJSNodeCanvas.renderToBuffer(configuration);
@@ -143,4 +143,5 @@ async function generateChart() {
 
 generateChart().catch(err => {
   console.error('❌ 生成图表时发生错误:', err);
+  process.exit(1); // 确保错误时退出
 });
