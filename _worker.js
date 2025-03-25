@@ -122,7 +122,9 @@ export default {
             columns: {
               chat_id: 'TEXT PRIMARY KEY',
               message_count: 'INTEGER DEFAULT 0',
-              window_start: 'INTEGER'
+              window_start: 'INTEGER',
+              start_count: 'INTEGER DEFAULT 0',
+              start_window_start: 'INTEGER'
             }
           },
           chat_topic_mappings: {
@@ -260,7 +262,7 @@ export default {
       }
 
       // 检查用户是否被拉黑
-      const userState = await env.D1.prepare('SELECT is_blocked FROM user_states WHERE chat_id = ?')
+      const userState = await env.D1.prepare('SELECT is_blocked, is_verified, verified_expiry, is_first_verification FROM user_states WHERE chat_id = ?')
         .bind(chatId)
         .first();
       const isBlocked = userState ? userState.is_blocked : false;
@@ -269,28 +271,52 @@ export default {
         return;
       }
 
+      // 检查用户是否已经验证且验证未过期
+      const nowSeconds = Math.floor(Date.now() / 1000);
+      const isVerified = userState && userState.is_verified && userState.verified_expiry && nowSeconds < userState.verified_expiry;
+      const isFirstVerification = userState ? userState.is_first_verification : true;
+
       // 处理 /start 命令，确保不转发
       if (text === '/start') {
         console.log(`Received /start command from ${chatId}, processing without forwarding...`);
-        await env.D1.prepare('INSERT OR REPLACE INTO user_states (chat_id, is_first_verification) VALUES (?, ?)')
-          .bind(chatId, true)
-          .run();
 
-        const firstVerificationState = await env.D1.prepare('SELECT is_first_verification FROM user_states WHERE chat_id = ?')
-          .bind(chatId)
-          .first();
-        const isFirstVerification = firstVerificationState ? firstVerificationState.is_first_verification : true;
+        // 检查 /start 命令的频率
+        if (await checkStartCommandRate(chatId)) {
+          console.log(`User ${chatId} exceeded /start command rate limit, ignoring.`);
+          await sendMessageToUser(chatId, "您发送 /start 命令过于频繁，请稍后再试！");
+          return;
+        }
 
+        // 如果用户尚未有记录，初始化 is_first_verification 为 true
+        if (!userState) {
+          await env.D1.prepare('INSERT INTO user_states (chat_id, is_first_verification) VALUES (?, ?)')
+            .bind(chatId, true)
+            .run();
+        }
+
+        // 如果用户已经验证且验证未过期，直接发送欢迎消息
+        if (isVerified) {
+          const successMessage = await getVerificationSuccessMessage();
+          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
+          return;
+        }
+
+        // 如果是首次验证，触发验证流程
         if (isFirstVerification) {
-          // 首次使用，发送欢迎消息并触发验证
           await sendMessageToUser(chatId, "你好，欢迎使用私聊机器人，请完成验证以开始使用！");
           await handleVerification(chatId, messageId);
         } else {
-          // 非首次使用，直接发送欢迎消息
-          const successMessage = await getVerificationSuccessMessage();
-          await sendMessageToUser(chatId, `${successMessage}\n你好，欢迎使用私聊机器人，现在发送信息吧！`);
+          // 如果不是首次验证但验证已过期，触发新的验证
+          await sendMessageToUser(chatId, "您的验证已过期，请重新验证以继续使用！");
+          await handleVerification(chatId, messageId);
         }
         return; // 确保 /start 不被转发
+      }
+
+      // 如果用户未验证且不是首次验证（可能是验证过期），需要重新验证
+      if (!isVerified) {
+        await sendMessageToUser(chatId, "您尚未完成验证或验证已过期，请使用 /start 命令重新验证！");
+        return;
       }
 
       // 检查消息频率（防刷）
@@ -327,6 +353,32 @@ export default {
       } catch (error) {
         console.error(`Error handling message from chatId ${chatId}:`, error);
       }
+    }
+
+    async function checkStartCommandRate(chatId) {
+      const key = chatId;
+      const now = Date.now();
+      const window = 5 * 60 * 1000; // 5 分钟窗口
+      const maxStartsPerWindow = 1; // 每 5 分钟最多允许 1 次 /start 命令
+
+      const rateData = await env.D1.prepare('SELECT start_count, start_window_start FROM message_rates WHERE chat_id = ?')
+        .bind(key)
+        .first();
+      let data = rateData ? { count: rateData.start_count, start: rateData.start_window_start } : { count: 0, start: now };
+
+      if (now - data.start > window) {
+        data.count = 1;
+        data.start = now;
+      } else {
+        data.count += 1;
+      }
+
+      await env.D1.prepare('UPDATE message_rates SET start_count = ?, start_window_start = ? WHERE chat_id = ?')
+        .bind(data.count, data.start, key)
+        .run();
+
+      console.log(`User ${chatId} /start command count: ${data.count}/${maxStartsPerWindow} in last 5 minutes`);
+      return data.count > maxStartsPerWindow;
     }
 
     async function handleAdminCommand(message, topicId, privateChatId) {
@@ -595,8 +647,8 @@ export default {
         data.count += 1;
       }
 
-      await env.D1.prepare('INSERT OR REPLACE INTO message_rates (chat_id, message_count, window_start) VALUES (?, ?, ?)')
-        .bind(key, data.count, data.start)
+      await env.D1.prepare('UPDATE message_rates SET message_count = ?, window_start = ? WHERE chat_id = ?')
+        .bind(data.count, data.start, key)
         .run();
 
       console.log(`User ${chatId} message count: ${data.count}/${MAX_MESSAGES_PER_MINUTE} in last minute`);
@@ -640,7 +692,6 @@ export default {
 
       const notificationContent = await getNotificationContent();
 
-      // 修改用户名格式为 "用户名: @userName"
       const pinnedMessage = `昵称: ${nickname}\n用户名: @${userName}\nUserID: ${userId}\n发起时间: ${formattedTime}\n\n${notificationContent}`;
       const messageResponse = await sendMessageToTopic(topicId, pinnedMessage);
       const messageId = messageResponse.result.message_id;
