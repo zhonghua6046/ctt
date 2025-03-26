@@ -6,7 +6,7 @@
 
 以下是 CFTeleTrans 项目的截图： 
 
-![CFTeleTrans 截图](picture/60e43fcf63e7c49148c2df7caff7d176.png)
+![CFTeleTrans 截图](https://tc-212.pages.dev/1743001600418.png)
 
 ## 特点与亮点
 
