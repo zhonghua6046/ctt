@@ -25,18 +25,21 @@ jobs:
       - name: Install system dependencies for canvas
         run: sudo apt-get update && sudo apt-get install -y build-essential libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev
 
-      - name: Generate star chart
+      - name: Generate star chart (only on original repository)
+        if: github.repository_owner == 'iawooo' # 将 'iawooo' 替换为你的 GitHub 用户名
         env:
           GITHUB_TOKEN: ${{ secrets.CUSTOM_GITHUB_TOKEN }}
         run: npm run generate-star-chart
 
-      - name: Update README with new image version
+      - name: Update README with new image version (only on original repository)
+        if: github.repository_owner == 'iawooo' # 将 'iawooo' 替换为你的 GitHub 用户名
         run: |
           TIMESTAMP=$(date +%s)
           sed -i "s|images/star-chart.png?v=[0-9]*|images/star-chart.png?v=$TIMESTAMP|g" README.md
           sed -i "s|images/star-chart.png|images/star-chart.png?v=$TIMESTAMP|g" README.md
 
-      - name: Commit and push changes
+      - name: Commit and push changes (only on original repository)
+        if: github.repository_owner == 'iawooo' # 将 'iawooo' 替换为你的 GitHub 用户名
         run: |
           git config user.name "GitHub Actions Bot"
           git config user.email "actions@github.com"
