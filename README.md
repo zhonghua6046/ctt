@@ -147,8 +147,10 @@
 ## 更新
 
 workers_with_security_token.js新增功能：
+
 ✅ 插入 Webhook IP 白名单 + secret_token 校验
 ✅ 为管理接口 /registerWebhook、/unRegisterWebhook 加 token 权限验证
+
 需要增加两个变量：
 ADMIN_SECRET = 管理 API 调用密钥，强密码，如r4nd0mAdm1nT0ken
 TELEGRAM_SECRET_TOKEN = xxxxx：Telegram 的 webhook secret（强推荐设置为长度 >= 32 的随机字符串，例如可执行以下得到：openssl rand -base64 32 | tr -dc 'A-Za-z0-9-_.~' | head -c 64
