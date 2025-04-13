@@ -143,7 +143,8 @@
 - **二次修改与发布**  
   欢迎基于本项目进行二次开发，但请在发布时注明原始出处，共同维护开源社区的良好氛围。
 
-  ## 更新
+
+## 更新
 
 workers_with_security_token.js新增功能：
 ✅ 插入 Webhook IP 白名单 + secret_token 校验
