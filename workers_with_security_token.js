@@ -1,4 +1,3 @@
-
 function isIPInCIDR(ip, cidr) {
   const [range, bits = 32] = cidr.split('/');
   const ip2long = ip => ip.split('.').reduce((acc, oct) => (acc << 8) + parseInt(oct), 0);
